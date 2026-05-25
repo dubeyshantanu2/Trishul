@@ -48,7 +48,10 @@ All operational parameters are centralized in `config.json`:
   "SLIPPAGE_CAP": 2.0
 }
 ```
-*Note: Sensitive tokens should be injected via environment variables (`TRISHUL_AUTH_TOKEN`, `SUPABASE_URL`, `DISCORD_WEBHOOK_URL`).*
+*Note: Sensitive tokens should be injected via environment variables (`TRISHUL_AUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_KEY`, `DISCORD_WEBHOOK_URL`).*
+
+### 🗄️ Database Setup
+To set up the Supabase database required by `adapters.py`, execute the SQL commands located in the `schema.sql` file within your Supabase project's SQL Editor. This will create the required `trishul_signals` table.
 
 ## 🚀 Execution
 
