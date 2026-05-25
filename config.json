@@ -9,7 +9,8 @@
     "security_id": "13",
     "tick_size": 0.05,
     "strike_interval": 50,
-    "target_sweep_qty": 2500,
+    "lot_size": 50,
+    "trade_lots": 50,
     "obi_trigger_threshold": 0.50,
     "chop_max_sign_flips": 5,
     "spoof_min_orders_per_layer": 3

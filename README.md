@@ -154,7 +154,8 @@ The agent must structure the python application into these exact 5 functional mo
   "NIFTY_FUTURES_PROFILE": {
     "security_id": "13",
     "strike_interval": 50,
-    "target_sweep_qty": 2500,
+    "lot_size": 50,
+    "trade_lots": 50,
     "obi_trigger_threshold": 0.50,
     "chop_max_sign_flips": 5,
     "spoof_min_orders_per_layer": 3
@@ -170,7 +171,8 @@ Available overrides:
 * `TARGET_SYMBOL_NAME`: *(Optional)* The prefix for the discord alert (e.g., `NIFTY`). If omitted, the alert will just output the strike (e.g., `22500 CE`).
 * `TARGET_TICK_SIZE`: *(Optional)* The tick size decimal. Defaults to `0.05` (NSE standard).
 * `TARGET_STRIKE_INTERVAL`: *(Optional)* The ATM rounding interval. Defaults to `50`.
-* `TARGET_SWEEP_QTY`: *(Optional)* The block size simulation quantity. Defaults to `2500`.
+* `TARGET_LOT_SIZE`: *(Optional)* The underlying lot size of the instrument. Defaults to `50`.
+* `TARGET_TRADE_LOTS`: *(Optional)* The number of lots you intend to trade. The engine multiplies this by `TARGET_LOT_SIZE` to calculate the exact slippage sweep depth. Defaults to `50`.
 
 ### 2. parser.py (Low-Latency Binary Data Ingestion)
 * Opens and handles asynchronous WebSocket loops utilizing `websockets`.

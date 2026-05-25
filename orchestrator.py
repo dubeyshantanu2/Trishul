@@ -118,7 +118,11 @@ class OrchestratedPipeline(NiftyFuturePipeline):
         self.profile["security_id"] = security_id
         self.profile["tick_size"] = float(os.environ.get("TARGET_TICK_SIZE", self.profile.get("tick_size", 0.05)))
         self.profile["strike_interval"] = int(os.environ.get("TARGET_STRIKE_INTERVAL", self.profile.get("strike_interval", 50)))
-        self.profile["target_sweep_qty"] = int(os.environ.get("TARGET_SWEEP_QTY", self.profile.get("target_sweep_qty", 2500)))
+        
+        # Calculate Sweep QTY dynamically based on lot size and desired trade lots
+        lot_size = int(os.environ.get("TARGET_LOT_SIZE", self.profile.get("lot_size", 50)))
+        trade_lots = int(os.environ.get("TARGET_TRADE_LOTS", self.profile.get("trade_lots", 50)))
+        self.profile["target_sweep_qty"] = lot_size * trade_lots
         
         self.engine = DOMEngine(
             tick_size=self.profile["tick_size"], 
