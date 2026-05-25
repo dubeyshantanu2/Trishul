@@ -166,11 +166,11 @@ The agent must structure the python application into these exact 5 functional mo
 The orchestrator is designed to prioritize environment variables over `config.json`. This allows for zero-downtime hot-swapping of trading instruments directly from your deployment's secrets panel (e.g., Fly.io Secrets) without touching the codebase.
 
 Available overrides:
-* `TARGET_SECURITY_ID`: The DhanHQ exchange security ID (e.g., `62329`).
+* `TARGET_SECURITY_ID`: The DhanHQ exchange security ID (e.g., `13`).
 * `TARGET_SYMBOL_NAME`: *(Optional)* The prefix for the discord alert (e.g., `NIFTY`). If omitted, the alert will just output the strike (e.g., `22500 CE`).
-* `TARGET_TICK_SIZE`: The tick size decimal (e.g., `0.05`).
-* `TARGET_STRIKE_INTERVAL`: The ATM rounding interval (e.g., `50`).
-* `TARGET_SWEEP_QTY`: The block size simulation quantity (e.g., `2500`).
+* `TARGET_TICK_SIZE`: *(Optional)* The tick size decimal. Defaults to `0.05` (NSE standard).
+* `TARGET_STRIKE_INTERVAL`: *(Optional)* The ATM rounding interval. Defaults to `50`.
+* `TARGET_SWEEP_QTY`: *(Optional)* The block size simulation quantity. Defaults to `2500`.
 
 ### 2. parser.py (Low-Latency Binary Data Ingestion)
 * Opens and handles asynchronous WebSocket loops utilizing `websockets`.
