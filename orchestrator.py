@@ -185,7 +185,7 @@ class OrchestratedPipeline(NiftyFuturePipeline):
 
             snapshot_data = {
                 "timestamp_epoch": int(current_time),
-                "instrument_ticker": str(self.profile.get("security_id", "55098")),
+                "instrument_ticker": str(self.profile.get("security_id", "13")),
                 "signal_direction": direction,
                 "spoof_filtered_obi": float(spoof_filtered_obi),
                 "current_cvd": int(cvd_val),
@@ -224,6 +224,25 @@ async def main():
     config_path = "config.json"
     try:
         with open(config_path, "r") as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        logger.error(f"Configuration file {config_path} not found. Ensure it exists in the root directory.")
+        return
+    except json.JSONDecodeError:
+        logger.error(f"Configuration file {config_path} is malformed.")
+        return
+
+    orchestrator = OrchestratedPipeline(config)
+    logger.info(f"Initializing Trishul Unified Runtime Execution Engine for {orchestrator.symbol_name}...")
+    
+    await orchestrator.run()
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Orchestrator graceful shutdown triggered by operator.")
+ as f:
             config = json.load(f)
     except FileNotFoundError:
         logger.error(f"Configuration file {config_path} not found. Ensure it exists in the root directory.")
