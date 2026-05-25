@@ -5,7 +5,9 @@
     "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_SECURE_URL"
   },
   "NIFTY_FUTURES_PROFILE": {
+    "symbol_name": "NIFTY",
     "security_id": "55098",
+    "tick_size": 0.05,
     "strike_interval": 50,
     "target_sweep_qty": 2500,
     "obi_trigger_threshold": 0.50,
