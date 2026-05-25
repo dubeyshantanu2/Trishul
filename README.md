@@ -174,6 +174,11 @@ Available overrides:
 * `TARGET_LOT_SIZE`: *(Optional)* The underlying lot size of the instrument. Defaults to `50`.
 * `TARGET_TRADE_LOTS`: *(Optional)* The number of lots you intend to trade. The engine multiplies this by `TARGET_LOT_SIZE` to calculate the exact slippage sweep depth. Defaults to `50`.
 
+#### Why do Lot Size and Trade Lots matter?
+While your trade size does **NOT** affect the core LONG/SHORT algorithmic signals (which track pure institutional flow), it is critical for two personalized execution metrics:
+1. **The Slippage Reality (Sweep VWAP):** If the breakout fires and you want to execute 100 lots, the engine needs to know your size. It multiplies `TARGET_LOT_SIZE` by `TARGET_TRADE_LOTS` and mathematically "walks down" the live 200-level depth book until it fills that exact quantity. This gives you the precise execution price (Sweep VWAP) and slippage you will incur.
+2. **The Spoof Anomaly Flag:** The engine compares the `Micro-price` (Level 1 true price) to your personalized `Sweep VWAP`. If the order book is "hollow" (e.g., a fake massive order at Level 1, but empty behind it), your VWAP will drop significantly. The system will detect this massive slippage and trigger a Discord warning: `⚠️ WARNING: SPOOFING ANOMALY DETECTED`.
+
 ### 2. parser.py (Low-Latency Binary Data Ingestion)
 * Opens and handles asynchronous WebSocket loops utilizing `websockets`.
 * Stream A: `wss://full-depth-api.dhan.co/twohundreddepth` (200-level binary book payload).
