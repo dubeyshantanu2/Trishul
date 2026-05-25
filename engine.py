@@ -75,12 +75,9 @@ class DOMEngine:
 
     def calculate_spoof_filtered_obi(self, bids: np.ndarray, asks: np.ndarray):
         """
-        Processes 200 depth layers grouped into 4 macro-brackets.
-        Applies filters for Quantity-to-Order ratio and AVP Low Volume Nodes (LVN).
-        
-        bids/asks format: [[price, qty, orders], ...]
+        Processes 200 depth layers into sequential brackets.
+        Applies mathematical Order-Count Ratio Filter combined with AVP Reality Check.
         """
-        # Ensure input is numpy
         bids = np.asanyarray(bids)
         asks = np.asanyarray(asks)
         
@@ -88,39 +85,30 @@ class DOMEngine:
             if depth_array.size == 0:
                 return 0.0
             
-            # Split into 4 brackets of 50 layers
-            num_layers = len(depth_array)
-            brackets = np.array_split(depth_array, 4)
-            weighted_volume = 0.0
+            prices = depth_array[:, 0]
+            qtys = depth_array[:, 1]
+            orders = depth_array[:, 2]
             
-            # Bracket weights (closer layers have higher impact)
-            bracket_weights = [1.0, 0.5, 0.25, 0.125]
+            # w_i = 1 / i (1-based index)
+            i_values = np.arange(1, len(depth_array) + 1)
+            weights = 1.0 / i_values
             
-            for i, bracket in enumerate(brackets):
-                prices = bracket[:, 0]
-                qtys = bracket[:, 1]
-                orders = bracket[:, 2]
-                
-                # 1. Spoof Filter: Quantity-to-Order ratio
-                # Penalize layers where orders are suspiciously low relative to qty
-                qto_ratio = qtys / np.maximum(orders, 1)
-                # Mean QTO for normalizing (approximation)
-                mean_qto = np.median(qto_ratio) if qto_ratio.size > 0 else 1.0
-                spoof_penalty = np.where(qto_ratio > mean_qto * 2.5, 0.2, 1.0)
-                
-                # 2. LVN Filter: Penalize volume in Low Volume Nodes
-                # We check if the price is far from POC and has low historical volume
-                lvn_penalty = np.ones_like(prices)
+            # F_i Spoof Penalty Factor (default 1.0)
+            f_factors = np.ones_like(qtys, dtype=float)
+            
+            if self.total_volume > 0:
+                avg_vol = self.total_volume / len(self.volume_profile)
                 for j, p in enumerate(prices):
                     hist_vol = self.volume_profile.get(p, 0)
-                    if self.total_volume > 0:
-                        rel_vol = hist_vol / (self.total_volume / len(self.volume_profile))
-                        if rel_vol < 0.2: # LVN threshold
-                            lvn_penalty[j] = 0.5
-                
-                # Apply filters and sum
-                effective_qty = qtys * spoof_penalty * lvn_penalty
-                weighted_volume += np.sum(effective_qty) * bracket_weights[i]
+                    is_lvn = hist_vol < (avg_vol * 0.2) # LVN threshold logic
+                    
+                    if orders[j] == 1 and is_lvn:
+                        f_factors[j] = 0.05
+                    elif orders[j] >= 3:
+                        f_factors[j] = 1.0
+            
+            effective_qty = qtys * f_factors
+            weighted_volume = np.sum(weights * effective_qty)
                 
             return weighted_volume
 
@@ -136,17 +124,22 @@ class DOMEngine:
     def calculate_micro_price(self, bids: np.ndarray, asks: np.ndarray):
         """
         Computes L1 volume-weighted fair value (Micro-price).
-        bids/asks: L1 [price, qty, orders]
         """
+        if bids.size == 0 or asks.size == 0:
+            return 0.0
         bid_px, bid_qty = bids[0, 0], bids[0, 1]
         ask_px, ask_qty = asks[0, 0], asks[0, 1]
         
+        if (bid_qty + ask_qty) == 0:
+            return 0.0
         return (bid_px * ask_qty + ask_px * bid_qty) / (bid_qty + ask_qty)
 
     def calculate_sweep_vwap(self, book_side: np.ndarray, target_qty: int = 2500):
         """
         Evaluates execution slippage (Sweep VWAP) for a target quantity.
         """
+        if book_side.size == 0:
+            return 0.0
         prices = book_side[:, 0]
         qtys = book_side[:, 1]
         
@@ -154,16 +147,18 @@ class DOMEngine:
         full_fill_idx = np.searchsorted(cum_qty, target_qty)
         
         if full_fill_idx >= len(prices):
-            # Not enough liquidity to fill the full sweep
+            if np.sum(qtys) == 0:
+                return 0.0
             return np.average(prices, weights=qtys)
             
-        # Partial fill of the last layer
         sweep_prices = prices[:full_fill_idx + 1]
         sweep_qtys = qtys[:full_fill_idx + 1].copy()
         
         overfill = cum_qty[full_fill_idx] - target_qty
         sweep_qtys[-1] -= overfill
         
+        if np.sum(sweep_qtys) == 0:
+            return 0.0
         return np.average(sweep_prices, weights=sweep_qtys)
 
     def update_cvd(self, trade_price: float, trade_qty: int, best_bid: float, best_ask: float):
@@ -172,9 +167,9 @@ class DOMEngine:
         """
         delta = 0
         if trade_price >= best_ask:
-            delta = trade_qty  # Aggressive Buy
+            delta = trade_qty
         elif trade_price <= best_bid:
-            delta = -trade_qty # Aggressive Sell
+            delta = -trade_qty
             
         self.cvd += delta
         return self.cvd

@@ -23,15 +23,6 @@ if SUPABASE_URL and SUPABASE_KEY:
 async def log_signal(snapshot_data: dict) -> bool:
     """
     Asynchronously inserts breakout audit data into a Supabase table.
-    
-    Expected snapshot_data keys:
-    - ticker: str
-    - direction: str ("LONG" or "SHORT")
-    - spoof_filtered_obi: float
-    - cvd_value: float
-    - avp_phase_status: str
-    - micro_price: float
-    - sweep_vwap: float
     """
     if not supabase:
         logger.warning("Supabase client not initialized. Skipping log_signal.")
@@ -39,14 +30,18 @@ async def log_signal(snapshot_data: dict) -> bool:
         
     try:
         payload = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "ticker": snapshot_data.get("ticker", "UNKNOWN"),
-            "direction": snapshot_data.get("direction"),
-            "spoof_filtered_obi": snapshot_data.get("spoof_filtered_obi"),
-            "cvd_value": snapshot_data.get("cvd_value"),
-            "avp_phase_status": snapshot_data.get("avp_phase_status"),
-            "micro_price": snapshot_data.get("micro_price"),
-            "sweep_vwap": snapshot_data.get("sweep_vwap")
+            "timestamp_epoch": snapshot_data.get("timestamp_epoch", int(datetime.now(timezone.utc).timestamp())),
+            "instrument_ticker": snapshot_data.get("instrument_ticker", "UNKNOWN"),
+            "signal_direction": snapshot_data.get("signal_direction", "UNKNOWN"),
+            "spoof_filtered_obi": snapshot_data.get("spoof_filtered_obi", 0.0),
+            "current_cvd": snapshot_data.get("current_cvd", 0),
+            "avp_poc": snapshot_data.get("avp_poc", 0.0),
+            "avp_vah": snapshot_data.get("avp_vah", 0.0),
+            "avp_val": snapshot_data.get("avp_val", 0.0),
+            "calculated_micro_price": snapshot_data.get("calculated_micro_price", 0.0),
+            "calculated_sweep_vwap": snapshot_data.get("calculated_sweep_vwap", 0.0),
+            "suggested_atm_strike": snapshot_data.get("suggested_atm_strike", "N/A"),
+            "current_regime": snapshot_data.get("current_regime", "UNKNOWN")
         }
         
         # Run synchronous Supabase client operation in a thread pool
@@ -67,20 +62,11 @@ async def dispatch_webhook(alert_payload: dict) -> bool:
     """
     Asynchronously sends an HTTP POST request to a Discord channel webhook.
     Constructs a highly formatted markdown payload for scannability.
-    
-    Expected alert_payload keys:
-    - direction: str ("LONG" or "SHORT")
-    - micro_price: float
-    - sweep_vwap: float
-    - slippage_cap: float
-    - atm_strike: str
-    - spoof_anomaly: bool
-    - avp_vah: float
-    - avp_poc: float
-    - avp_val: float
-    - cvd_velocity: str
     """
-    if not DISCORD_WEBHOOK_URL:
+    # Fallback to config or env variable if present in payload
+    webhook_url = alert_payload.get("webhook_url", DISCORD_WEBHOOK_URL)
+    
+    if not webhook_url:
         logger.warning("DISCORD_WEBHOOK_URL not configured. Skipping webhook dispatch.")
         return False
 
@@ -107,7 +93,6 @@ async def dispatch_webhook(alert_payload: dict) -> bool:
 **Execution Parameters:**
 ```yaml
 Micro-price:    {alert_payload.get('micro_price', 0.0):.2f}
-Slippage Cap:   {alert_payload.get('slippage_cap', 0.0):.2f}
 Sweep VWAP:     {alert_payload.get('sweep_vwap', 0.0):.2f}
 ```
 **Recommended Action:**
@@ -129,7 +114,7 @@ Sweep VWAP:     {alert_payload.get('sweep_vwap', 0.0):.2f}
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(DISCORD_WEBHOOK_URL, json=payload) as response:
+            async with session.post(webhook_url, json=payload) as response:
                 if response.status in (200, 204):
                     logger.info("Successfully dispatched Discord webhook.")
                     return True

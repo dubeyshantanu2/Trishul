@@ -8,7 +8,7 @@ from orchestrator import ChopProtectionFilter
 
 class TestTrishulPipeline(unittest.TestCase):
     def test_parser_binary_safety(self):
-        pipeline = NiftyFuturePipeline(security_id=51437, token="mock", client_id="mock")
+        pipeline = NiftyFuturePipeline(security_id=55098, token="mock", client_id="mock")
         
         num_rows = 2
         header_size = 12
@@ -16,7 +16,7 @@ class TestTrishulPipeline(unittest.TestCase):
         msg_len = header_size + (num_rows * row_size)
         
         # Header: MsgLen(int16), Code(byte), Segment(byte), SecID(int32), NumRows(uint32)
-        header = struct.pack("<h b b i I", msg_len, 41, 1, 51437, num_rows)
+        header = struct.pack("<h b b i I", msg_len, 41, 1, 55098, num_rows)
         # Rows: Price(float64), Qty(uint32), Orders(uint32)
         row1 = struct.pack("<d I I", 22000.0, 1000, 10)
         row2 = struct.pack("<d I I", 21999.0, 500, 5)
@@ -48,11 +48,11 @@ class TestTrishulPipeline(unittest.TestCase):
         obi = engine.calculate_spoof_filtered_obi(normal_bids, spoof_asks)
         
         # Without filter, 5000 qty would dominate (OBI heavily negative).
-        # With spoof + LVN penalty filters, the 5000 qty's mathematical weight drops significantly.
+        # With spoof + LVN penalty filters (F_i drops to 0.05), the weight drops significantly.
         self.assertGreater(obi, -0.5)
 
     def test_chop_protection_regime(self):
-        chop_filter = ChopProtectionFilter()
+        chop_filter = ChopProtectionFilter(window_seconds=60, max_flips=5)
         
         # Simulate 6 polarity flips within a 45 second window
         timestamps = [0, 5, 10, 15, 20, 25, 30]
