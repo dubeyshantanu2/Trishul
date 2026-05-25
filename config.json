@@ -6,7 +6,7 @@
   },
   "NIFTY_FUTURES_PROFILE": {
     "symbol_name": "NIFTY",
-    "security_id": "55098",
+    "security_id": "13",
     "tick_size": 0.05,
     "strike_interval": 50,
     "target_sweep_qty": 2500,

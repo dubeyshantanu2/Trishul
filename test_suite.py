@@ -8,7 +8,7 @@ from orchestrator import ChopProtectionFilter
 
 class TestTrishulPipeline(unittest.TestCase):
     def test_parser_binary_safety(self):
-        pipeline = NiftyFuturePipeline(security_id=55098, token="mock", client_id="mock")
+        pipeline = NiftyFuturePipeline(security_id=13, token="mock", client_id="mock")
         
         num_rows = 2
         header_size = 12
@@ -16,7 +16,7 @@ class TestTrishulPipeline(unittest.TestCase):
         msg_len = header_size + (num_rows * row_size)
         
         # Header: MsgLen(int16), Code(byte), Segment(byte), SecID(int32), NumRows(uint32)
-        header = struct.pack("<h b b i I", msg_len, 41, 1, 55098, num_rows)
+        header = struct.pack("<h b b i I", msg_len, 41, 1, 13, num_rows)
         # Rows: Price(float64), Qty(uint32), Orders(uint32)
         row1 = struct.pack("<d I I", 22000.0, 1000, 10)
         row2 = struct.pack("<d I I", 21999.0, 500, 5)

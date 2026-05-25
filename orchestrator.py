@@ -76,7 +76,7 @@ class ChopProtectionFilter:
 
         return self.state
 
-def calculate_atm_strike(future_price: float, interval: int = 50, direction: str = "LONG") -> str:
+def calculate_atm_strike(future_price: float, interval: int = 50, direction: str = "LONG", symbol: str = "NIFTY") -> str:
     """
     Rounds future price to the nearest strike interval.
     Returns the formatted option strike string (CE for long, PE for short).
@@ -86,7 +86,7 @@ def calculate_atm_strike(future_price: float, interval: int = 50, direction: str
         
     rounded_strike = round(future_price / interval) * interval
     opt_type = "CE" if direction == "LONG" else "PE"
-    return f"NIFTY {rounded_strike} {opt_type}"
+    return f"{symbol} {int(rounded_strike)} {opt_type}"
 
 class OrchestratedPipeline(NiftyFuturePipeline):
     """
@@ -94,7 +94,8 @@ class OrchestratedPipeline(NiftyFuturePipeline):
     Pipes streaming ticks into the DOMEngine and manages alerting logic.
     """
     def __init__(self, config: dict):
-        profile = config.get("NIFTY_FUTURES_PROFILE", {})
+        # Support either NIFTY or generic FUTURES profile
+        profile = config.get("FUTURES_PROFILE") or config.get("NIFTY_FUTURES_PROFILE", {})
         sys_settings = config.get("SYSTEM_SETTINGS", {})
         
         super().__init__(
@@ -105,9 +106,10 @@ class OrchestratedPipeline(NiftyFuturePipeline):
         self.config = config
         self.profile = profile
         self.sys_settings = sys_settings
+        self.symbol_name = self.profile.get("symbol_name", "NIFTY")
         
         self.engine = DOMEngine(
-            tick_size=0.05, 
+            tick_size=self.profile.get("tick_size", 0.05), 
             value_area_pct=0.70
         )
         self.chop_filter = ChopProtectionFilter(
@@ -176,10 +178,10 @@ class OrchestratedPipeline(NiftyFuturePipeline):
             sweep_vwap = self.engine.calculate_sweep_vwap(book_side, target_qty=target_qty)
             
             strike_interval = self.profile.get("strike_interval", 50)
-            atm_strike_str = calculate_atm_strike(self.last_future_price, strike_interval, direction)
+            atm_strike_str = calculate_atm_strike(self.last_future_price, strike_interval, direction, symbol=self.symbol_name)
             
             # Simple spoof anomaly flag based on difference between micro and sweep
-            spoof_anomaly = abs(sweep_vwap - micro_price) > 4.0 
+            spoof_anomaly = abs(sweep_vwap - micro_price) > (self.profile.get("tick_size", 0.05) * 80) 
 
             snapshot_data = {
                 "timestamp_epoch": int(current_time),
@@ -213,7 +215,7 @@ class OrchestratedPipeline(NiftyFuturePipeline):
                 asyncio.create_task(log_signal(snapshot_data))
             
             if regime != "REGIME_CHOP":
-                logger.info(f"Firing {direction} Breakout Alert!")
+                logger.info(f"Firing {direction} Breakout Alert for {self.symbol_name}!")
                 asyncio.create_task(dispatch_webhook(alert_payload))
             else:
                 logger.info("Signal suppressed by CHOP PROTECTION regime. Database audit logged.")
@@ -231,7 +233,7 @@ async def main():
         return
 
     orchestrator = OrchestratedPipeline(config)
-    logger.info("Initializing Trishul Unified Runtime Execution Engine...")
+    logger.info(f"Initializing Trishul Unified Runtime Execution Engine for {orchestrator.symbol_name}...")
     
     await orchestrator.run()
 

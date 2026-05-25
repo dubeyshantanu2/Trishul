@@ -130,7 +130,7 @@ class NiftyFuturePipeline:
 
 if __name__ == "__main__":
     # Project Trishul Execution Entry Point
-    SECURITY_ID = 55098  # Nifty Future ID representation
+    SECURITY_ID = 13  # Nifty Future ID representation
     TOKEN = "TRISHUL_AUTH_TOKEN_ENV"
     CLIENT_ID = "TRISHUL_CLIENT_ID_ENV"
     
