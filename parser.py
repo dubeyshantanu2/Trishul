@@ -99,9 +99,9 @@ class NiftyFuturePipeline:
 
     async def _connect_and_stream(self, url: str, name: str):
         """Maintains concurrent WebSocket connections with auto-reconnect."""
-        params = {'token': self.token}
-        if "twohundreddepth" in url:
-            params.update({'clientId': self.client_id, 'authType': '2'})
+        params = {'token': self.token, 'clientId': self.client_id, 'authType': '2'}
+        if "api-feed" in url:
+            params['version'] = '2'
             
         ws_url = f"{url}?{urlencode(params)}"
         
