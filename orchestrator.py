@@ -76,7 +76,7 @@ class ChopProtectionFilter:
 
         return self.state
 
-def calculate_atm_strike(future_price: float, interval: int = 50, direction: str = "LONG", symbol: str = "NIFTY") -> str:
+def calculate_atm_strike(future_price: float, interval: int = 50, direction: str = "LONG", symbol: str = "") -> str:
     """
     Rounds future price to the nearest strike interval.
     Returns the formatted option strike string (CE for long, PE for short).
@@ -86,7 +86,10 @@ def calculate_atm_strike(future_price: float, interval: int = 50, direction: str
         
     rounded_strike = round(future_price / interval) * interval
     opt_type = "CE" if direction == "LONG" else "PE"
-    return f"{symbol} {int(rounded_strike)} {opt_type}"
+    
+    if symbol:
+        return f"{symbol} {int(rounded_strike)} {opt_type}"
+    return f"{int(rounded_strike)} {opt_type}"
 
 class OrchestratedPipeline(NiftyFuturePipeline):
     """
@@ -98,18 +101,27 @@ class OrchestratedPipeline(NiftyFuturePipeline):
         profile = config.get("FUTURES_PROFILE") or config.get("NIFTY_FUTURES_PROFILE", {})
         sys_settings = config.get("SYSTEM_SETTINGS", {})
         
+        # Override with environment variables for dynamic deployment (Fly.io secrets)
+        security_id = int(os.environ.get("TARGET_SECURITY_ID", profile.get("security_id", 13)))
+        
         super().__init__(
-            security_id=int(profile.get("security_id", 55098)),
+            security_id=security_id,
             token=os.environ.get("TRISHUL_AUTH_TOKEN", "mock"),
             client_id=os.environ.get("TRISHUL_CLIENT_ID", "mock")
         )
         self.config = config
         self.profile = profile
         self.sys_settings = sys_settings
-        self.symbol_name = self.profile.get("symbol_name", "NIFTY")
+        
+        # Merge ENV variables into profile overrides
+        self.symbol_name = os.environ.get("TARGET_SYMBOL_NAME", self.profile.get("symbol_name", ""))
+        self.profile["security_id"] = security_id
+        self.profile["tick_size"] = float(os.environ.get("TARGET_TICK_SIZE", self.profile.get("tick_size", 0.05)))
+        self.profile["strike_interval"] = int(os.environ.get("TARGET_STRIKE_INTERVAL", self.profile.get("strike_interval", 50)))
+        self.profile["target_sweep_qty"] = int(os.environ.get("TARGET_SWEEP_QTY", self.profile.get("target_sweep_qty", 2500)))
         
         self.engine = DOMEngine(
-            tick_size=self.profile.get("tick_size", 0.05), 
+            tick_size=self.profile["tick_size"], 
             value_area_pct=0.70
         )
         self.chop_filter = ChopProtectionFilter(
@@ -215,7 +227,8 @@ class OrchestratedPipeline(NiftyFuturePipeline):
                 asyncio.create_task(log_signal(snapshot_data))
             
             if regime != "REGIME_CHOP":
-                logger.info(f"Firing {direction} Breakout Alert for {self.symbol_name}!")
+                alert_target = self.symbol_name if self.symbol_name else str(self.profile.get("security_id"))
+                logger.info(f"Firing {direction} Breakout Alert for {alert_target}!")
                 asyncio.create_task(dispatch_webhook(alert_payload))
             else:
                 logger.info("Signal suppressed by CHOP PROTECTION regime. Database audit logged.")
@@ -233,26 +246,9 @@ async def main():
         return
 
     orchestrator = OrchestratedPipeline(config)
-    logger.info(f"Initializing Trishul Unified Runtime Execution Engine for {orchestrator.symbol_name}...")
     
-    await orchestrator.run()
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Orchestrator graceful shutdown triggered by operator.")
- as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Configuration file {config_path} not found. Ensure it exists in the root directory.")
-        return
-    except json.JSONDecodeError:
-        logger.error(f"Configuration file {config_path} is malformed.")
-        return
-
-    orchestrator = OrchestratedPipeline(config)
-    logger.info(f"Initializing Trishul Unified Runtime Execution Engine for {orchestrator.symbol_name}...")
+    target_name = orchestrator.symbol_name if orchestrator.symbol_name else str(orchestrator.security_id)
+    logger.info(f"Initializing Trishul Unified Runtime Execution Engine for {target_name}...")
     
     await orchestrator.run()
 
