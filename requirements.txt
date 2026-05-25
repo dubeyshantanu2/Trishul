@@ -1,0 +1,5 @@
+numpy
+websockets
+aiohttp
+supabase
+python-dotenv
